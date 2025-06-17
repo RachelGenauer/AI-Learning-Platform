@@ -6,7 +6,7 @@ class Prompt(Base):
     __tablename__ = "prompts"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id_number"))
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
     sub_category_id = Column(Integer, ForeignKey("sub_categories.id"), nullable=False)
     prompt = Column(Text, nullable=False)

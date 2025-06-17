@@ -5,7 +5,6 @@ from app.schemas import UserCreate
 from fastapi import HTTPException
 
 async def create_user(user_data: UserCreate, db: AsyncSession) -> User:
-    
     result = await db.execute(select(User).where(User.id_number == user_data.id_number))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="User with this ID already exists")

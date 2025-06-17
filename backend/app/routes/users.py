@@ -1,32 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 from app.database import get_db
-from app.models.user import User
 from app.schemas import UserCreate, UserOut
+from app.services.user_service import create_user, get_all_users
 
 router = APIRouter()
 
 @router.post("/", response_model=UserOut)
-async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
-    
-    result = await db.execute(select(User).where(User.id_number == user.id_number))
-    existing_user = result.scalar_one_or_none()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="User with this ID already exists")
-
-    new_user = User(
-        id_number=user.id_number,
-        name=user.name,
-        phone=user.phone
-    )
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    return new_user
+async def create_user_route(user: UserCreate, db: AsyncSession = Depends(get_db)):
+    return await create_user(user, db)
 
 @router.get("/", response_model=list[UserOut])
-async def get_all_users(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User))
-    users = result.scalars().all()
-    return users
+async def get_all_users_route(db: AsyncSession = Depends(get_db)):
+    return await get_all_users(db)
