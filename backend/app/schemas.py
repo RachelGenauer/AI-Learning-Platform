@@ -4,6 +4,8 @@ from datetime import datetime
 
 # User Schemas
 
+from pydantic import BaseModel
+
 class UserBase(BaseModel):
     id_number: str
     name: str
@@ -48,10 +50,11 @@ class SubCategoryOut(SubCategoryBase):
 # Prompt Schemas
 
 class PromptBase(BaseModel):
-    user_id: str 
-    category_id: int
-    sub_category_id: int
+    user_id: str
+    category_name: str
+    sub_category_name: str
     prompt: str
+
 
 class PromptCreate(PromptBase):
     pass
