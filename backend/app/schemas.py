@@ -1,19 +1,18 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
 # User Schemas
 
 class UserBase(BaseModel):
-    name: str = Field(..., example="ישראל ישראלי")
-    phone: str = Field(..., example="050-1234567")
+    id_number: str
+    name: str
+    phone: str
 
 class UserCreate(UserBase):
     pass
 
 class UserOut(UserBase):
-    id: int
-
     class Config:
         orm_mode = True
 
@@ -49,7 +48,7 @@ class SubCategoryOut(SubCategoryBase):
 # Prompt Schemas
 
 class PromptBase(BaseModel):
-    user_id: int
+    user_id: str 
     category_id: int
     sub_category_id: int
     prompt: str

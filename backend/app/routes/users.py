@@ -9,12 +9,17 @@ router = APIRouter()
 
 @router.post("/", response_model=UserOut)
 async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.phone == user.phone))
+    
+    result = await db.execute(select(User).where(User.id_number == user.id_number))
     existing_user = result.scalar_one_or_none()
     if existing_user:
-        raise HTTPException(status_code=400, detail="User with this phone already exists")
+        raise HTTPException(status_code=400, detail="User with this ID already exists")
 
-    new_user = User(name=user.name, phone=user.phone)
+    new_user = User(
+        id_number=user.id_number,
+        name=user.name,
+        phone=user.phone
+    )
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)

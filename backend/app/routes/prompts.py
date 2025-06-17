@@ -15,8 +15,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 @router.post("/", response_model=PromptOut)
 async def create_prompt(data: PromptCreate, db: AsyncSession = Depends(get_db)):
-    
-    result = await db.execute(select(User).where(User.id == data.user_id))
+
+    result = await db.execute(select(User).where(User.id_number == data.user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
