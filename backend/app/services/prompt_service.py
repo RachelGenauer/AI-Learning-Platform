@@ -7,14 +7,14 @@ from app.models.user import User
 from app.models.prompt import Prompt
 from app.models.category import Category
 from app.models.sub_category import SubCategory
-from app.schemas import PromptCreate
+from app.schemas import PromptCreate, PromptUpdate
 import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-async def create_prompt(data: PromptCreate, db: AsyncSession) -> Prompt:
+async def create_prompt(data: PromptCreate, db: AsyncSession) -> dict:
     result = await db.execute(select(User).where(User.id_number == data.user_id))
     if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -43,25 +43,18 @@ async def create_prompt(data: PromptCreate, db: AsyncSession) -> Prompt:
         ]
     }
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            json=payload,
-            headers=headers
-        )
-
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=500,
-                detail=f"OpenAI API error: {response.status_code} {response.text}"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                json=payload,
+                headers=headers
             )
-
-        response_json = response.json()
-        if "choices" not in response_json:
-            raise HTTPException(status_code=500, detail="Invalid response from OpenAI")
-
-        ai_response = response_json["choices"][0]["message"]["content"]
-
+            response.raise_for_status()
+            response_json = response.json()
+            ai_response = response_json["choices"][0]["message"]["content"]
+    except Exception:
+        ai_response = "Unable to connect to the AI service at the moment. Please try again later."
     new_prompt = Prompt(
         user_id=data.user_id,
         category_id=category.id,
@@ -73,8 +66,92 @@ async def create_prompt(data: PromptCreate, db: AsyncSession) -> Prompt:
     db.add(new_prompt)
     await db.commit()
     await db.refresh(new_prompt)
-    return new_prompt
 
-async def get_user_prompts(user_id: str, db: AsyncSession) -> list[Prompt]:
-    result = await db.execute(select(Prompt).where(Prompt.user_id == user_id))
-    return result.scalars().all()
+    return {
+        "response": ai_response
+    }
+
+async def get_all_prompts(db: AsyncSession):
+    stmt = (
+        select(
+            Prompt.id,
+            Prompt.user_id,
+            Prompt.prompt,
+            Prompt.response,
+            Prompt.created_at,
+            Category.name.label("category_name"),
+            SubCategory.name.label("sub_category_name")
+        )
+        .join(Category, Category.id == Prompt.category_id)
+        .join(SubCategory, SubCategory.id == Prompt.sub_category_id)
+    )
+    result = await db.execute(stmt)
+    return [
+        {
+            "id": row.id,
+            "user_id": row.user_id,
+            "prompt": row.prompt,
+            "response": row.response,
+            "created_at": row.created_at,
+            "category_name": row.category_name,
+            "sub_category_name": row.sub_category_name
+        }
+        for row in result.all()
+    ]
+
+
+async def get_user_prompt_details(user_id: str, db: AsyncSession):
+    stmt = (
+        select(
+            Prompt.id,
+            Prompt.user_id,
+            Prompt.prompt,
+            Prompt.response,
+            Prompt.created_at,
+            Category.name.label("category_name"),
+            SubCategory.name.label("sub_category_name")
+        )
+        .join(Category, Category.id == Prompt.category_id)
+        .join(SubCategory, SubCategory.id == Prompt.sub_category_id)
+        .where(Prompt.user_id == user_id)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="User ID not found or has no prompts.")
+
+    return [
+        {
+            "id": row.id,
+            "user_id": row.user_id,
+            "prompt": row.prompt,
+            "response": row.response,
+            "created_at": row.created_at,
+            "category_name": row.category_name,
+            "sub_category_name": row.sub_category_name
+        }
+        for row in rows
+    ]
+
+
+async def update_prompt(prompt_id: int, data: PromptUpdate, db: AsyncSession):
+    result = await db.execute(select(Prompt).where(Prompt.id == prompt_id))
+    prompt = result.scalar_one_or_none()
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    if data.prompt:
+        prompt.prompt = data.prompt
+    if data.response:
+        prompt.response = data.response
+    await db.commit()
+    await db.refresh(prompt)
+    return prompt
+
+async def delete_prompt(prompt_id: int, db: AsyncSession):
+    prompt = await db.get(Prompt, prompt_id)
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    await db.delete(prompt)
+    await db.commit()
+    return {"detail": "Prompt deleted successfully"}

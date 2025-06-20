@@ -6,4 +6,4 @@ class User(Base):
 
     id_number = Column(String, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    phone = Column(String, unique=True, index=True, nullable=False)
+    phone = Column(String, nullable=False)
