@@ -4,6 +4,11 @@ export interface User {
   phone: string;
 }
 
+export interface Category {
+  id: number;
+  name: string;
+}
+
 export interface Prompt {
   user_id: string;
   prompt: string;
