@@ -1,9 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models.user import User
-from app.schemas import UserCreate, UserLogin, UserUpdate
-from fastapi import HTTPException
-
+from app.schemas.user_schema import UserCreate, UserLogin, UserUpdate
+from app.exceptions import AlreadyExistsException, NotFoundException, BadRequestException
 
 
 async def create_user(user_data: UserCreate, db: AsyncSession) -> User:
@@ -18,11 +17,11 @@ async def create_user(user_data: UserCreate, db: AsyncSession) -> User:
 
     if existing_user:
         if existing_user.id_number == user_data.id_number:
-            raise HTTPException(status_code=400, detail="id_number already exists")
+            raise AlreadyExistsException("ID number")
         elif existing_user.name == user_data.name:
-            raise HTTPException(status_code=400, detail="name already exists")
+            raise AlreadyExistsException("Name")
         elif existing_user.phone == user_data.phone:
-            raise HTTPException(status_code=400, detail="phone already exists")
+            raise AlreadyExistsException("Phone number")
 
     new_user = User(
         id_number=user_data.id_number,
@@ -33,34 +32,35 @@ async def create_user(user_data: UserCreate, db: AsyncSession) -> User:
     await db.commit()
     await db.refresh(new_user)
     return new_user
-    
+
+
 async def get_all_users(db: AsyncSession) -> list[User]:
     result = await db.execute(select(User))
     return result.scalars().all()
+
 
 async def login_user(data: UserLogin, db: AsyncSession):
     result = await db.execute(select(User).where(User.name == data.name))
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise NotFoundException("User")
 
     if user.phone != data.phone:
-        raise HTTPException(status_code=400, detail="Phone number is incorrect")
+        raise BadRequestException("Phone number is incorrect")
 
     return {
-        "id": user.id_number,
+        "id_number": user.id_number,
         "name": user.name,
-        "phone": user.phone  
+        "phone": user.phone
     }
-
 
 
 async def update_user(user_id: str, data: UserUpdate, db: AsyncSession):
     result = await db.execute(select(User).where(User.id_number == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise NotFoundException("User")
     if data.name:
         user.name = data.name
     if data.phone:
@@ -69,11 +69,11 @@ async def update_user(user_id: str, data: UserUpdate, db: AsyncSession):
     await db.refresh(user)
     return user
 
+
 async def delete_user(user_id: str, db: AsyncSession):
     user = await db.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise NotFoundException("User")
     await db.delete(user)
     await db.commit()
     return {"detail": "User deleted successfully"}
-

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.schemas import SubCategoryCreate, SubCategoryOut, SubCategoryDelete, SubCategoryUpdate, DeleteResponse
+from app.schemas.sub_category_schema import SubCategoryCreate, SubCategoryOut, SubCategoryDelete, SubCategoryUpdate, DeleteResponse
 from app.services.sub_category_service import create_sub_category, get_all_sub_categories, get_sub_categories_by_category_name, delete_sub_category
 
 router = APIRouter()

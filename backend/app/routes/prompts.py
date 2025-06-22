@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.schemas import PromptCreate, PromptResponse, PromptFullOut, PromptUpdate, DeleteResponse
+from app.schemas.prompt_schema import PromptCreate, PromptResponse, PromptFullOut, PromptUpdate, DeleteResponse
 from app.services.prompt_service import create_prompt, get_all_prompts, get_user_prompt_details, delete_prompt
 
 router = APIRouter()

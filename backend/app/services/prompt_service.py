@@ -7,22 +7,24 @@ from app.models.user import User
 from app.models.prompt import Prompt
 from app.models.category import Category
 from app.models.sub_category import SubCategory
-from app.schemas import PromptCreate, PromptUpdate
+from app.schemas.prompt_schema import PromptCreate, PromptUpdate
+from app.exceptions import NotFoundException
 import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+
 async def create_prompt(data: PromptCreate, db: AsyncSession) -> dict:
     result = await db.execute(select(User).where(User.id_number == data.user_id))
     if result.scalar_one_or_none() is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise NotFoundException("User")
 
     category_result = await db.execute(select(Category).where(Category.name == data.category_name))
     category = category_result.scalar_one_or_none()
     if category is None:
-        raise HTTPException(status_code=404, detail="Category not found")
+        raise NotFoundException("Category")
 
     sub_category_result = await db.execute(
         select(SubCategory).where(
@@ -30,9 +32,13 @@ async def create_prompt(data: PromptCreate, db: AsyncSession) -> dict:
             SubCategory.category_id == category.id
         )
     )
-    sub_category = sub_category_result.scalar_one_or_none()
-    if sub_category is None:
-        raise HTTPException(status_code=404, detail="Sub-category not found")
+    sub_categories = sub_category_result.scalars().all()
+
+    if len(sub_categories) == 0:
+        raise NotFoundException("Sub-category")
+    elif len(sub_categories) > 1:
+        raise HTTPException(status_code=400, detail="Multiple sub-categories found with the same name and category.")
+    sub_category = sub_categories[0]
 
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
     payload = {
@@ -55,6 +61,7 @@ async def create_prompt(data: PromptCreate, db: AsyncSession) -> dict:
             ai_response = response_json["choices"][0]["message"]["content"]
     except Exception:
         ai_response = "Unable to connect to the AI service at the moment. Please try again later."
+
     new_prompt = Prompt(
         user_id=data.user_id,
         category_id=category.id,
@@ -70,6 +77,7 @@ async def create_prompt(data: PromptCreate, db: AsyncSession) -> dict:
     return {
         "response": ai_response
     }
+
 
 async def get_all_prompts(db: AsyncSession):
     stmt = (
@@ -119,7 +127,7 @@ async def get_user_prompt_details(user_id: str, db: AsyncSession):
     rows = result.all()
 
     if not rows:
-        raise HTTPException(status_code=404, detail="User ID not found or has no prompts.")
+        raise NotFoundException("User or prompts")
 
     return [
         {
@@ -139,7 +147,7 @@ async def update_prompt(prompt_id: int, data: PromptUpdate, db: AsyncSession):
     result = await db.execute(select(Prompt).where(Prompt.id == prompt_id))
     prompt = result.scalar_one_or_none()
     if not prompt:
-        raise HTTPException(status_code=404, detail="Prompt not found")
+        raise NotFoundException("Prompt")
     if data.prompt:
         prompt.prompt = data.prompt
     if data.response:
@@ -148,10 +156,11 @@ async def update_prompt(prompt_id: int, data: PromptUpdate, db: AsyncSession):
     await db.refresh(prompt)
     return prompt
 
+
 async def delete_prompt(prompt_id: int, db: AsyncSession):
     prompt = await db.get(Prompt, prompt_id)
     if not prompt:
-        raise HTTPException(status_code=404, detail="Prompt not found")
+        raise NotFoundException("Prompt")
     await db.delete(prompt)
     await db.commit()
     return {"detail": "Prompt deleted successfully"}

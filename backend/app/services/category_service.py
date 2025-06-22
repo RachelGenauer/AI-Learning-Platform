@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models.category import Category
-from app.schemas import CategoryCreate, CategoryUpdate
+from app.schemas.category_schema import CategoryCreate, CategoryUpdate
 from fastapi import HTTPException
 
 async def create_category(category: CategoryCreate, db: AsyncSession) -> Category:
